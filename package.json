@@ -1,0 +1,14 @@
+{
+  "name": "unit-65a",
+  "version": "1.0.0",
+  "description": "Someone who interacts with the world through the capacities provided by Amelia",
+  "main": "main.js",
+  "author": "Amy C.",
+  "license": "ISC",
+  "repository": {},
+  "dependencies": {
+    "discord.js": "^11.5.1",
+    "dotenv": "^8.2.0",
+    "keyv": "^4.0.3"
+  }
+}
