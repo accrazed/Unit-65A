@@ -7,8 +7,9 @@
   "license": "ISC",
   "repository": "https://github.com/AccraZed/Unit-65A",
   "dependencies": {
-    "discord.js": "^11.5.1",
+    "discord.js": "^12.4.1",
     "dotenv": "^8.2.0",
-    "keyv": "^4.0.3"
+    "sequelize": "^6.3.5",
+    "sqlite3": "^5.0.0"
   }
 }
