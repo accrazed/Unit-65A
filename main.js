@@ -16,59 +16,60 @@ const sequelize = new Sequelize('database', 'user', 'password', {
 	storage: 'database.sqlite',
 });
 
-// Initialize the database model
-const Data = sequelize.define('data', 
+// Initialize users db
+const UserData = sequelize.define('user_data', 
 {
-    snowflakeID: {
+    snowflake_id: {
         type: Sequelize.STRING,
         unique: true,
     },
     da_user: Sequelize.STRING,
     osu_user: Sequelize.STRING,
     poggers_best: Sequelize.INTEGER,
+    pogger_last: Sequelize.DATE,
 });
+// Initialize guilds db
+const GuildData = sequelize.define('guild_data', 
+{
+    name: Sequelize.STRING,
+    snowflake_id: {
+        type: Sequelize.STRING,
+        unique: true,
+    },
+    prefix: {
+        type: Sequelize.STRING,
+        defaultValue: '>',
+        allowNull: false,
+    },
+});
+
 bot.on('ready', () => 
 {
-    Data.sync({ force: true });
-    console.info(`Unit ${bot.user.tag} online!`);
+    UserData.sync();
+    GuildData.sync();
+    console.log(`Unit ${bot.user.tag} online!`);
+});
+
+// Initialize guild data
+bot.on('guildCreate', async guild => {
+    const guild_data = await GuildData.create(
+    {
+        snowflake_id: guild.id,
+        name: guild.name,
+    });
+    console.log(`Joined new guild: ${guild.name}`);
+});
+
+// Remove guild data
+bot.on('guildDelete', async guild => {
+    console.log(`Lost access to guild: ${guild.name}`);
 });
 
 bot.on('message', async msg => 
 {
     if (msg.author.bot) return;
 
-    let args;
-    let command = "";
-
-    // if (msg.guild)
-    // {
-    //     let prefix = "";
-
-    //     if (msg.content.startsWith(global_prefix))
-    //     {
-    //         prefix = global_prefix;
-    //     }
-    //     else
-    //     {
-    //         // const guildPrefix = await prefixes.get(msg.guild.id);
-    //         if (msg.content.startsWith(guildPrefix)) 
-    //             prefix = guildPrefix;
-    //     }
-
-    //     args = msg.content.slice(prefix.length).trim().split(/\s+/);
-    // }
-    // const command = args.shift().toLowerCase();
-
-    // if (command === 'prefix') 
-    // {
-    //     // if there's at least one argument, set the prefix
-    //     if (args.length > 0) 
-    //     {
-    //         // await prefixes.set(msg.guild.id, args[0]);
-    //         return msg.channel.send(`Successfully set prefix to \`${args[0]}\``);
-    //     }
-    //     // return msg.channel.send(`Prefix is \`${await prefixes.get(msg.guild.id) || global_prefix}\``);
-    // }
+    if (msg.content.startsWith())
 
     if (command === 'poggy') 
     {
