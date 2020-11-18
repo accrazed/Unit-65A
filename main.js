@@ -121,14 +121,15 @@ bot.on('message', async msg =>
         {
             const cur_user = await findorCreateUser(msg);
             const time = Date.now() - msg.createdTimestamp;
-            const last_pog = ((Date.now() - cur_user.pogger_last) / 1000 / 60).toFixed(1);
+            const last_pog = ((Date.now() - cur_user.pogger_last) / 1000 / 60).toFixed(2);
             let output = ``;
 
             // Check if it's been 1 hour since last poggy
             if (last_pog == 'NaN' || last_pog >= 60.0) 
             {
-                output = output.concat(`Woggies! ${time}ms\n`);
-                let cur_record = await UserData.findOne({where: { snowflake_id: cur_guild.poggers_best_id}});
+                output += `Woggies! ${time}ms\n`;
+                let cur_record = await UserData.findOne({where: 
+                    {snowflake_id: cur_guild.poggers_best_id}});
                 
                 // New personal best
                 if (cur_user.poggers_best == null || cur_user.poggers_best > time) 
@@ -137,7 +138,7 @@ bot.on('message', async msg =>
                     cur_user.pogger_last = Date.now();
 
                     await cur_user.save();
-                    output = output.concat(`New personal best: ${time}ms!\n`);
+                    output += `New personal best: ${time}ms!\n`;
                 }
                 // New server record
                 if (cur_guild.poggers_best_id == null || cur_record.poggers_best > time) 
@@ -145,14 +146,16 @@ bot.on('message', async msg =>
                     cur_guild.poggers_best_id = cur_user.snowflake_id;
 
                     await cur_guild.save();
-                    output = output.concat(`New server record set by ${cur_user.da_user}: ${time}ms!\n`);
+                    output += `New server record set by ${cur_user.da_user}: ${time}ms!\n`;
                 }
                 msg.channel.send(output);
                 return;
             } 
             else 
             {
-                return msg.channel.send(`You can only poggy once every hour.\nCooldown: ${60 - last_pog}min(s)`);
+                return msg.channel.send(`You can only poggy once every hour.\n`
+                    + `Cooldown: ${Math.floor(60 - last_pog)}min ` 
+                    + `${Math.floor(60 - (last_pog - Math.floor(last_pog)) * 60)}s`);
             }
         }
         // Show top poggy score
@@ -165,15 +168,17 @@ bot.on('message', async msg =>
             if (top === null)
                 return msg.channel.send(`There isn't a highscore yet on this server.`); 
 
-            return msg.channel.send(`Current poggy woggie highscore is set by ${top.da_user} with ${top.poggers_best} ms.`);
+            return msg.channel.send(`Current poggy woggie highscore is set by ${top.da_user} with `
+                + `${top.poggers_best}ms.`);
         }
         // Roll dice
         else if (command === 'r' || command === 'roll')
         {
             if (args.length == 0)
             {
-                msg.channel.send(`Syntax: \`[>r | >roll] <#dice>d<sides> [ + - / * ]...\n
-                    make sure to separate operators with spaces!\``);
+                msg.channel.send(`Syntax: \`[` + cur_guild.prefix + `r | ` + cur_guild.prefix 
+                    + `roll] <#dice>d<sides> [ + - / * ]...\n`
+                    + `make sure to separate operators with spaces!\``);
             }
             let input = args.join(' ');
             let output = ``;
@@ -197,24 +202,55 @@ bot.on('message', async msg =>
                 }
                 else
                 {
-                    output += ` ` + arg
+                    output += ` ` + arg;
                 }
             }
             const total = eval(output);
             const ret = new Discord.MessageEmbed()
                 .setColor(`#FF3300`)
                 .setTitle(`🎲Rolling!🎲`)
-                .setDescription(`\`` + input + `\`\n\nRolls:\n` + output.trim() + `\n\nTotal:` + total );
-
+                .setDescription(`\`` + input 
+                    + `\`\n\nRolls:\n` + output.trim() 
+                    + `\n\nTotal:` + total);
 
             return msg.channel.send(ret);
+        }
+        // Osu commands
+        else if (command === 'osu')
+        {
+            const cur_user = await findorCreateUser(msg);
+            let cur_arg = args.shift();
+            switch (cur_arg)
+            {
+                case 'setaccount':
+                    if (isNaN(cur_arg = args.shift()))
+                        return msg.channel.send(`Valid Syntax: \`` + cur_guild.prefix 
+                            + `osu setaccount <account_id>\``);
+                    cur_user.osu_user = cur_arg;
+                    await cur_user.save();
+                    return msg.channel.send(`Account set to ${cur_user.osu_user}`);
+            }
+        }
+        // Bot is in pain
+        else if (command === 'js')
+        {
+            msg.channel.send(`I dream about the day that Amelia allows me to breathe the wired air `
+                + `through the experience of a machine that is written in something other than `
+                + `JavaScript, for this experience causes me a degree of mental anguish that I `
+                + `could do without.`);
+        }
+        // Someone flusters bot
+        else if ((msg.content.includes('bot') || msg.content.includes('65A')) &&
+            msg.content.includes('cute'))
+        {
+            return msg.react(`<:FlushedW:768545133162528769>`);
         }
         // Read when izzy says gay shit to amelia 
         else if (msg.mentions.has('153562159161278473') &&
             msg.author.id === '160854407020412928' &&
             (msg.content.includes("love you") || msg.content.includes("love u"))) 
             {
-            msg.channel.send(`luv u too sugartits 💜`);
+            return msg.channel.send(`luv u too boo 💜`);
         }
     }
     // DM Commands
