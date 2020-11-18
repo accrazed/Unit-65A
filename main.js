@@ -1,11 +1,14 @@
 const Dotenv = require('dotenv').config();
 const Discord = require('discord.js');
 const Sequelize = require('sequelize');
+const Osu = require('node-osu');
 
 const bot = new Discord.Client();
 const TOKEN = process.env.TOKEN;
+const OSUTOKEN = process.env.OSUTOKEN;
 const default_prefix = '>';
 
+const osuApi = new Osu.Api(OSUTOKEN);
 bot.login(TOKEN);
 
 // Initialize the connection info
@@ -22,52 +25,63 @@ const UserData = sequelize.define('user_data',
 {
     snowflake_id: {
         type: Sequelize.STRING,
-        unique: true,
+        unique: true
     },
-    da_user: {
-        type: Sequelize.STRING,
-        defaultValue: null
-    },
-    osu_user: {
-        type: Sequelize.STRING,
-        defaultValue: null
-    },
+    da_user: Sequelize.STRING,
+    osu_user: Sequelize.STRING,
     poggers_best: {
         type: Sequelize.INTEGER,
-        defaultValue: null
+        defaultValue: -1
     },
     pogger_last: {
         type: Sequelize.INTEGER,
-        defaultValue: null
+        defaultValue: -1
     },
+},{
+    timestamps: false
 });
 
 // Initialize guilds db
 const GuildData = sequelize.define('guild_data', {
     name: Sequelize.STRING,
-    poggers_best_id: Sequelize.STRING,
+    poggers_best_id: {
+        type: Sequelize.STRING,
+        defaultValue: -1
+    },
     snowflake_id: {
         type: Sequelize.STRING,
-        unique: true,
+        unique: true
     },
     prefix: {
         type: Sequelize.STRING,
         defaultValue: default_prefix,
-        allowNull: false,
+        allowNull: false
     },
+},{
+    timestamps: false
 });
 
 bot.on('ready', () => 
 {
-    UserData.sync();
-    GuildData.sync();
+    UserData.sync({ alter: true });
+    GuildData.sync({ alter: true });
     console.log(`Unit ${bot.user.tag} online!`);
 });
 
 // Initialize guild data
 bot.on('guildCreate', async guild =>
 {
+    ret = await GuildData.findOrCreate({
+        where: {
+            snowflake_id: guild.id
+        },
+        defaults: {
+            snowflake_id: guild.id,
+            name: guild.name
+        }
+    });
     console.log(`Joined new guild: ${guild.name}`);
+    return ret[0];
 });
 
 // Remove guild data
@@ -117,7 +131,7 @@ bot.on('message', async msg =>
             return msg.channel.send(`Prefix is \`${cur_guild.prefix}\``);
         }
         // Glorified Ping / Pong
-        else if (command === 'poggy') 
+        else if (command === 'poggy')
         {
             const cur_user = await findorCreateUser(msg);
             const time = Date.now() - msg.createdTimestamp;
@@ -125,27 +139,27 @@ bot.on('message', async msg =>
             let output = ``;
 
             // Check if it's been 1 hour since last poggy
-            if (last_pog == 'NaN' || last_pog >= 60.0) 
+            if (cur_user.pogger_last == -1 || last_pog >= 60.0)
             {
                 output += `Woggies! ${time}ms\n`;
                 let cur_record = await UserData.findOne({where: 
                     {snowflake_id: cur_guild.poggers_best_id}});
                 
                 // New personal best
-                if (cur_user.poggers_best == null || cur_user.poggers_best > time) 
+                if (cur_user.poggers_best > time || cur_user.poggers_best == -1)
                 {
                     cur_user.poggers_best = time;
                     cur_user.pogger_last = Date.now();
-
                     await cur_user.save();
+
                     output += `New personal best: ${time}ms!\n`;
                 }
                 // New server record
-                if (cur_guild.poggers_best_id == null || cur_record.poggers_best > time) 
+                if (cur_record == null || cur_record.poggers_best > time)
                 {
                     cur_guild.poggers_best_id = cur_user.snowflake_id;
-
                     await cur_guild.save();
+
                     output += `New server record set by ${cur_user.da_user}: ${time}ms!\n`;
                 }
                 msg.channel.send(output);
@@ -154,7 +168,7 @@ bot.on('message', async msg =>
             else 
             {
                 return msg.channel.send(`You can only poggy once every hour.\n`
-                    + `Cooldown: ${Math.floor(60 - last_pog)}min ` 
+                    + `Cooldown: ${Math.floor(60 - last_pog)}min `
                     + `${Math.floor(60 - (last_pog - Math.floor(last_pog)) * 60)}s`);
             }
         }
@@ -223,11 +237,22 @@ bot.on('message', async msg =>
             switch (cur_arg)
             {
                 case 'setaccount':
-                    if (isNaN(cur_arg = args.shift()))
-                        return msg.channel.send(`Valid Syntax: \`` + cur_guild.prefix 
-                            + `osu setaccount <account_id>\``);
-                    cur_user.osu_user = cur_arg;
-                    await cur_user.save();
+                    try 
+                    {
+                        cur_arg = args.shift();
+                        if (cur_arg.includes(`https://osu.ppy.sh/`))
+                            cur_arg = cur_arg.split('/').pop();
+                            
+                        osuApi.getUser({ u: cur_arg }).then(user => {
+                            cur_user.osu_user = user.id;
+                        });
+                        await cur_user.save();
+                    } 
+                    catch (error) {
+                        console.log(`ERROR IN COMMAND: osu setaccount\n\n` + error);
+                        return msg.channel.send(`Syntax: \``+ cur_guild.prefix + 
+                            `osu setaccount [id | username | link to profile]\``);
+                    }
                     return msg.channel.send(`Account set to ${cur_user.osu_user}`);
             }
         }
