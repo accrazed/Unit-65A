@@ -8,7 +8,9 @@ const TOKEN = process.env.TOKEN;
 const OSUTOKEN = process.env.OSUTOKEN;
 const default_prefix = '>';
 
-const osuApi = new Osu.Api(OSUTOKEN);
+const osuApi = new Osu.Api(OSUTOKEN, {
+    completeScores: true
+});
 bot.login(TOKEN);
 
 // Initialize the connection info
@@ -28,7 +30,10 @@ const UserData = sequelize.define('user_data',
         unique: true
     },
     da_user: Sequelize.STRING,
-    osu_user: Sequelize.STRING,
+    osu_user: {
+        type: Sequelize.STRING,
+        defaultValue: '-1'
+    },
     poggers_best: {
         type: Sequelize.INTEGER,
         defaultValue: -1
@@ -63,25 +68,17 @@ const GuildData = sequelize.define('guild_data', {
 
 bot.on('ready', () => 
 {
-    UserData.sync({ alter: true });
-    GuildData.sync({ alter: true });
+    UserData.sync();
+    GuildData.sync();
     console.log(`Unit ${bot.user.tag} online!`);
 });
 
 // Initialize guild data
 bot.on('guildCreate', async guild =>
 {
-    ret = await GuildData.findOrCreate({
-        where: {
-            snowflake_id: guild.id
-        },
-        defaults: {
-            snowflake_id: guild.id,
-            name: guild.name
-        }
-    });
+    await findorCreateGuild(guild);
     console.log(`Joined new guild: ${guild.name}`);
-    return ret[0];
+    return;
 });
 
 // Remove guild data
@@ -99,7 +96,7 @@ bot.on('message', async msg =>
     {
         let args, command;
 
-        let cur_guild = await findorCreateGuild(msg);
+        let cur_guild = await findorCreateGuild(msg.guild);
 
         // Break down message into the base <command> and the subsequent <args>
         if (msg.content.startsWith(cur_guild.prefix)) 
@@ -133,7 +130,7 @@ bot.on('message', async msg =>
         // Glorified Ping / Pong
         else if (command === 'poggy')
         {
-            const cur_user = await findorCreateUser(msg);
+            let cur_user = await findorCreateUser(msg.author);
             const time = Date.now() - msg.createdTimestamp;
             const last_pog = ((Date.now() - cur_user.pogger_last) / 1000 / 60).toFixed(2);
             let output = ``;
@@ -232,20 +229,21 @@ bot.on('message', async msg =>
         // Osu commands
         else if (command === 'osu')
         {
-            const cur_user = await findorCreateUser(msg);
+            const cur_user = await findorCreateUser(msg.author);
             let cur_arg = args.shift();
             switch (cur_arg)
             {
                 case 'setaccount':
+                    let osu_acc;
                     try 
                     {
                         cur_arg = args.shift();
                         if (cur_arg.includes(`https://osu.ppy.sh/`))
                             cur_arg = cur_arg.split('/').pop();
                             
-                        osuApi.getUser({ u: cur_arg }).then(user => {
-                            cur_user.osu_user = user.id;
-                        });
+                        osu_acc = await osuApi.getUser({u: cur_arg});
+
+                        cur_user.osu_user = osu_acc.id;
                         await cur_user.save();
                     } 
                     catch (error) {
@@ -253,8 +251,34 @@ bot.on('message', async msg =>
                         return msg.channel.send(`Syntax: \``+ cur_guild.prefix + 
                             `osu setaccount [id | username | link to profile]\``);
                     }
-                    return msg.channel.send(`Account set to ${cur_user.osu_user}`);
+                    return msg.channel.send(`Account set to ${osu_acc.name}`);
             }
+        }
+        else if (command === 'rs')
+        {
+            
+            try {
+                let cur_score = await osuApi.getUserRecent({u: 'accrazed'});
+                let cur_user = await findorCreateUser(msg.author);
+
+                
+                const ret = new Discord.MessageEmbed()
+                    .setColor(`#0033FF`)
+                    .setTitle(`${cur_score.beatmap.title} [${cur_score.beatmap.version}]`)
+                    .setAuthor(`Recent ${cur_score.beatmap.mode} play by ${cur_score.user.name}:`)
+                    .setDescription(``);
+                msg.channel.send(ret);
+            }
+            catch (error){
+                console.log(`ERROR IN COMMAND: rs\n\n` + error);
+                return msg.channel.send(`Error: Have you set your username with \``
+                    + cur_guild.prefix +`osu setaccount\` yet?`);
+            }
+        }
+        // Help Command
+        else if (command === 'help')
+        {
+            return;
         }
         // Bot is in pain
         else if (command === 'js')
@@ -283,28 +307,28 @@ bot.on('message', async msg =>
         return;
     }
 });
-async function findorCreateUser(msg) 
+async function findorCreateUser(user) 
 {
     ret = await UserData.findOrCreate({
         where: {
-            snowflake_id: msg.author.id
+            snowflake_id: user.id
         },
         defaults: {
-            snowflake_id: msg.author.id,
-            da_user: msg.author.username
+            snowflake_id: user.id,
+            da_user: user.username
         }
     });
     return ret[0];
 }
-async function findorCreateGuild(msg) 
+async function findorCreateGuild(guild) 
 {
     ret = await GuildData.findOrCreate({
         where: {
-            snowflake_id: msg.guild.id
+            snowflake_id: guild.id
         },
         defaults: {
-            snowflake_id: msg.guild.id,
-            name: msg.guild.name
+            snowflake_id: guild.id,
+            name: guild.name
         }
     });
     return ret[0];
@@ -312,4 +336,12 @@ async function findorCreateGuild(msg)
 function rand(n)
 {
     return Math.floor(Math.random() * n) + 1;
+}
+// Reduce a string <str> to a maximum number of characters <max>
+function str_limit(str, max)
+{
+    if (str.length > max - 3) 
+        str = str.substring(0, max - 3) + `...`;
+
+    return str;
 }
