@@ -8,6 +8,7 @@
     "dependencies": {
         "@typeit/discord": "^5.0.13",
         "dotenv": "^10.0.0",
+        "gh": "^2.8.9",
         "reflect-metadata": "^0.1.13",
         "ts-node": "^10.2.0",
         "typescript": "^4.3.5"
