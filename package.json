@@ -15,7 +15,8 @@
         "typescript": "^4.3.5"
     },
     "scripts": {
-        "start": "nodemon src/Main.ts --watch src/ -e js,ts"
+        "start": "nodemon src/Main.ts --watch src/ -e js,ts",
+        "deploy": "./scripts/deploy.sh"
     },
     "devDependencies": {
         "@types/node": "^16.6.1",

@@ -29,7 +29,7 @@ export abstract class MessageHandler {
             content.includes('dark')
         ) {
             const infoChannel = msg.guild.channels.cache.get(infoChannelID);
-            const channel = infoChannel == null ? '#info' : infoChannel.toString;
+            const channel = infoChannel == null ? '#info' : infoChannel.toString();
             msg.reply(`If you want the dark mode version of the theme, see ${channel} :)`);
         }
     }
